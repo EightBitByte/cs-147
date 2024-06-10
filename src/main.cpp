@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <string>
 #include "button.h"
-#include <HttpClient.h>
+// #include <HttpClient.h>
 #include <WiFi.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -13,12 +13,17 @@
 #include <random>
 #include <sstream>
 #include <iomanip>
+#include "gui.h"
+#include "login.h"
 
 
 #define RED_PIN 2
 #define YELLOW_PIN 15
 #define GREEN_PIN 13 
 #define BLUE_PIN 12
+
+#define BUTTONLeft 0
+#define BUTTONRight 35
 
 #define IP_ADDRESS "54.67.101.181"
 
@@ -147,80 +152,89 @@ std::string getPattern (int pattern_len) {
 }
 
 void setup() {
-    nvs_access();
-    // We start by connecting to a WiFi network
-    delay(1000);
-    Serial.println();
-    Serial.println();
-    Serial.print("Connecting to ");
-    Serial.println(ssid);
-    WiFi.begin(ssid, pass);
-    while (WiFi.status() != WL_CONNECTED) 
-    {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("");
-    Serial.println("WiFi connected");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
-    Serial.println("MAC address: ");
-    Serial.println(WiFi.macAddress());
-
-    red_button.begin();
-    yellow_button.begin();
-    green_button.begin();
-    blue_button.begin();
-
     Serial.begin(9600);
 
-    for (int i = 0; i < 5; i++)
-    {
-        // Prompt for pattern length
-        Serial.print("Select your pattern length:\nRed - 4 (default)\nYellow - 6\nGreen - 8\nBlue: - 10\n");
-        int pattern_len = 0;
+    initializeScreen();
 
-        while (!pattern_len) {
-            if (red_button.pressed()) 
-                pattern_len = 4;
-
-            else if (yellow_button.pressed()) 
-                pattern_len = 6;
-
-            else if (green_button.pressed()) 
-                pattern_len = 8;
-
-            else if (blue_button.pressed()) 
-                pattern_len = 10;
-        }
-
-        std::string pattern = getPattern(pattern_len);
-        Serial.printf("Pattern selected as %s\n", pattern.c_str());
-        WiFiClient c;
-        HttpClient http(c);
-
-        std::string informationToSend = "/?pattern=";
-        informationToSend += pattern;
-        
-        int err = http.get(IP_ADDRESS, 5000, informationToSend.c_str(), NULL);
-
-        if (err == 0) 
-        { 
-            Serial.println("startedRequest ok");
-            err = http.responseStatusCode();
-            if (err >= 0) {
-                Serial.print("Got status code: ");
-                Serial.println(err);
-            }
-        } 
-        else 
-        {
-            Serial.print("Connect failed: ");
-            Serial.println(err);
-        }
-    }
+    getFingerPrint();
     
 }
+
+// void setup() {
+//     nvs_access();
+//     // We start by connecting to a WiFi network
+//     delay(1000);
+//     Serial.println();
+//     Serial.println();
+//     Serial.print("Connecting to ");
+//     Serial.println(ssid);
+//     WiFi.begin(ssid, pass);
+//     while (WiFi.status() != WL_CONNECTED) 
+//     {
+//         delay(500);
+//         Serial.print(".");
+//     }
+//     Serial.println("");
+//     Serial.println("WiFi connected");
+//     Serial.println("IP address: ");
+//     Serial.println(WiFi.localIP());
+//     Serial.println("MAC address: ");
+//     Serial.println(WiFi.macAddress());
+
+//     red_button.begin();
+//     yellow_button.begin();
+//     green_button.begin();
+//     blue_button.begin();
+
+//     Serial.begin(9600);
+
+//     for (int i = 0; i < 5; i++)
+//     {
+//         // Prompt for pattern length
+//         Serial.print("Select your pattern length:\nRed - 4 (default)\nYellow - 6\nGreen - 8\nBlue: - 10\n");
+//         int pattern_len = 0;
+
+//         while (!pattern_len) {
+//             if (red_button.pressed()) 
+//                 pattern_len = 4;
+
+//             else if (yellow_button.pressed()) 
+//                 pattern_len = 6;
+
+//             else if (green_button.pressed()) 
+//                 pattern_len = 8;
+
+//             else if (blue_button.pressed()) 
+//                 pattern_len = 10;
+//         }
+
+//         std::string pattern = getPattern(pattern_len);
+//         Serial.printf("Pattern selected as %s\n", pattern.c_str());
+//         WiFiClient c;
+//         HttpClient http(c);
+
+//         std::string informationToSend = "/?pattern=";
+//         informationToSend += pattern;
+        
+//         int err = http.get(IP_ADDRESS, 5000, informationToSend.c_str(), NULL);
+
+//         if (err == 0) 
+//         { 
+//             Serial.println("startedRequest ok");
+//             err = http.responseStatusCode();
+//             if (err >= 0) {
+//                 Serial.print("Got status code: ");
+//                 Serial.println(err);
+//             }
+//         } 
+//         else 
+//         {
+//             Serial.print("Connect failed: ");
+//             Serial.println(err);
+//         }
+//     }
+    
+// }
 
 void loop() {
 

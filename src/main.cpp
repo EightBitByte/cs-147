@@ -132,7 +132,7 @@ int unlockPattern(int pattern_len) {
 
 void setup() {
     Serial.begin(9600);
-    //setupServer();
+    setupServer();
     initializeScreen();
 
     // Wonky button initialization
@@ -158,6 +158,7 @@ void loop()
     if (users[currentUser].name == "NEW USER") {
       Serial.println("Enrolling new User");
       enrollUser();
+      pushSuccessfulLogin(users[users.size()-1].name);
       updateInstruction("LB: Next");
       ++currentUser;
       updateUser(users[currentUser].name);
@@ -186,8 +187,6 @@ void loop()
 
   // Unlocking sequence
   else if (users[currentUser].name != "NEW USER") {
-    Serial.println("In Unlocking Sequence");
-
     bool force_exit = false;
     while (!loggedIn && !force_exit) {
       int result = unlockPattern(users[currentUser].pattern_len);
@@ -198,6 +197,7 @@ void loop()
           Serial.println("Incorrect Pattern");
           flashIncorrect(0);
           renderPattern("");
+          pushUnsuccessfulLogin(users[currentUser].name);
           break;
 
        // Correct pattern attempt
@@ -205,6 +205,7 @@ void loop()
           Serial.println("Correct Pattern, logging in");
           renderPattern("");
           renderArrow(-1);
+          pushSuccessfulLogin(users[currentUser].name);
 
           delay(500);
 

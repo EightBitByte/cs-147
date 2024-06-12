@@ -9,6 +9,7 @@ class User
     
     public:
         std::string name;
+        int pattern_len;
         bool verifyButtonPattern(std::string code) {return code == buttonPattern;};
         bool verifyFingerPrint(int id) {return id == fingerprintId;};
         bool verifyVerbalPassword(std::string password) {return password == verbalPassword;};
@@ -16,7 +17,6 @@ class User
         void setFingerPrintId(int id) {fingerprintId = id;};
         void setVerbalPassword(std::string password) {verbalPassword = password;};
         bool compareUsers(User &user) {return buttonPattern == user.buttonPattern && fingerprintId == user.fingerprintId && verbalPassword == user.verbalPassword;};
-
         User() {
             name = "NEW USER";
             buttonPattern = "";

@@ -13,8 +13,10 @@ void updateNamePrompt(const std::string& name);
 void flashIncorrect(int index);
 void renderPattern(std::string pattern);
 void renderPatternConfirm (int pattern_len);
+void renderPatternPrompt(bool clear);
 void renderArrow (int index);
 void updateActionTitle (std::string title);
 void renderToolbar();
+void renderTooltip(std::string tooltip);
 
 #endif

@@ -65,6 +65,7 @@ void updateUser(const std::string& name) {
     tft.fillRect(0, tft.height()/2 + 5, 300, 50, backgroundBlue);
     tft.setTextColor(TFT_WHITE, backgroundBlue);
 
+
     tft.setCursor(NAME_XY);
     tft.setFreeFont(&FreeMono9pt7b);
     tft.setTextDatum(MC_DATUM);
@@ -81,7 +82,7 @@ void renderUnlockedScreen() {
     tft.setTextColor(TFT_WHITE, backgroundBlue);
     tft.setFreeFont(&FreeMonoBold9pt7b);
     tft.drawString("My Info", tft.width()/2, 10);
-    updateTooltip("LB: Logout");
+    renderTooltip("LB: Logout");
 
     tft.setCursor(10, 30);
     tft.print("Name:  Diego Brando");
@@ -141,7 +142,7 @@ void showNamePrompt() {
     tft.setTextColor(TFT_CYAN, backgroundGray);
     tft.print("Previous");
 
-    tft.setCursor(10, 145);
+    tft.setCursor(10, 145);;
     tft.setTextColor(TFT_RED, backgroundGray);
     tft.print("Confirm Selection");
 
@@ -230,12 +231,28 @@ void renderPatternConfirm (int pattern_len) {
     tft.print("Retry");
 }
 
-
-void displayPatternLength(int length)
+/// @brief Prompts the user for a pattern length
+/// @param clear If true, clears the prompt
+void renderPatternPrompt(bool clear)
 {
-    tft.setCursor(10,40);
+    if (clear) {
+        tft.fillRect(10, 30, 300, 50, backgroundBlue);
+        return;
+    }
+    
+    tft.setCursor(10, 30);
     tft.setTextColor(TFT_WHITE, backgroundBlue);
-    tft.drawString(std::stoi(length).c_str(),)
+    tft.setTextFont(NULL);
+    tft.print("Choose length:");
+    tft.setCursor(10,40);
+    tft.setTextColor(TFT_RED, backgroundBlue);
+    tft.print("R: 4");
+    tft.setCursor(10,50);
+    tft.setTextColor(TFT_GREEN, backgroundBlue);
+    tft.print("G: 6");
+    tft.setCursor(10,60);
+    tft.setTextColor(TFT_CYAN, backgroundBlue);
+    tft.print("B: 8");
 }
 
 /// @brief Draw attention to a particular heading.
@@ -287,11 +304,12 @@ void renderToolbar() {
 /// @param tooltip The string to render (empty to clear)
 void renderTooltip(std::string tooltip) {
     if (tooltip.size() == 0) {
-        tft.fillRect(0, 210, 300, 10, backgroundBlue);
+        tft.fillRect(0, 200, 300, 15, backgroundBlue);
         return;
     }
 
     tft.setTextDatum(MC_DATUM);
     tft.setTextFont(NULL);
+    tft.setTextColor(TFT_WHITE, backgroundBlue);
     tft.drawString(tooltip.c_str(), tft.width()/2, 210);
 }

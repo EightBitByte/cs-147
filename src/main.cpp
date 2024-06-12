@@ -1,42 +1,47 @@
 #include <Arduino.h>
 #include <string>
+#include <inttypes.h>
+#include <WiFi.h>
+#include <vector>
 #include "button.h"
 // #include <HttpClient.h>
-#include <WiFi.h>
-#include <inttypes.h>
-#include <stdio.h>
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs.h"
 #include "nvs_flash.h"
-#include <random>
-#include <sstream>
-#include <iomanip>
 #include "gui.h"
 #include "login.h"
+#include "user.cpp"
 
 
 #define RED_PIN 2
-#define YELLOW_PIN 15
-#define GREEN_PIN 13 
 #define BLUE_PIN 12
+#define GREEN_PIN 13 
 
-#define BUTTONLeft 0
-#define BUTTONRight 35
+#define LEFT_BTN_PIN 0
 
 #define IP_ADDRESS "54.67.101.181"
 
 Button red_button(RED_PIN);
-Button yellow_button(YELLOW_PIN);
 Button green_button(GREEN_PIN);
 Button blue_button(BLUE_PIN);
+Button left_button(LEFT_BTN_PIN);
+
+int currentUser; // current login user attempt
+int currentLock; // Current lock we're working on
+bool loggedIn;  // Whether or not we're logged
+std::vector<User> users; // User log
 
 uint8_t count = 0;
 char ssid[50]; // your network SSID (name)
 char pass[50]; // your network password (use for WPA, or use
 const int kNetworkTimeout = 30 * 1000;
 const int kNetworkDelay = 1000;
+
+void clearUserData(User &user);
+std::string createName();
+void enrollUser();
 
 void nvs_access() {
   esp_err_t err = nvs_flash_init();
@@ -88,8 +93,6 @@ void nvs_access() {
   nvs_close(my_handle);
 }
 
-
-
 /// @brief Given a length of the pattern, return a string pattern of button presses
 /// @param pattern_len Length of the pattern (2-10)
 std::string getPattern (int pattern_len) {
@@ -105,32 +108,30 @@ std::string getPattern (int pattern_len) {
         while (presses < pattern_len) {
             if (red_button.pressed()) {
                 pattern += "R";
-                Serial.print("R");
+                // Serial.print("R");
                 ++presses;
-            }
-
-            else if (yellow_button.pressed()) {
-                pattern += "Y";
-                Serial.print("Y");
-                ++presses;
+                renderPattern(pattern);
             }
 
             else if (green_button.pressed()) {
                 pattern += "G";
-                Serial.print("G");
+                // Serial.print("G");
                 ++presses;
+                renderPattern(pattern);
             }
 
 
             else if (blue_button.pressed()) {
                 pattern += "B";
-                Serial.print("B");
+                // Serial.print("B");
                 ++presses;
+                renderPattern(pattern);
             }
         }
 
         // Confirmation
-        Serial.print("\n\nConfirm your pattern?\nGreen: OK\nRed: RETRY\n");
+        renderPatternConfirm(pattern_len);
+        // Serial.print("\n\nConfirm your pattern?\nGreen: OK\nRed: RETRY\n");
         
         bool selected = false;
         while (!selected) {
@@ -138,12 +139,14 @@ std::string getPattern (int pattern_len) {
                 selected = true;
                 presses = 0;
                 pattern.clear();
-                Serial.print("\nEnter your pattern: ");
+                renderPattern(pattern);
+                // Serial.print("\nEnter your pattern: ");
             }
 
             else if (green_button.pressed()) {
                 selected = true;
                 confirmation = true;
+                renderPattern("");
             }
         }
     }
@@ -151,91 +154,188 @@ std::string getPattern (int pattern_len) {
     return pattern;
 }
 
+/// @brief Get the pattern inputted, return if it is correct or not
+/// @return Whether or not it matches the current user
+bool unlockPattern() {
+    int presses = 0;
+    bool confirmation = false;
+    std::string pattern {""};
+    while (presses < 4) {
+        if (red_button.pressed()) {
+            pattern += "R";
+            ++presses;
+            renderPattern(pattern);
+        }
+
+        else if (green_button.pressed()) {
+            pattern += "G";
+            ++presses;
+            renderPattern(pattern);
+        }
+
+
+        else if (blue_button.pressed()) {
+            pattern += "B";
+            ++presses;
+            renderPattern(pattern);
+        }
+    }
+
+    return users[currentUser].verifyButtonPattern(pattern);
+}
+
 void setup() {
     Serial.begin(9600);
 
     initializeScreen();
 
-    getFingerPrint();
-    
+    // Wonky button initialization
+    if (red_button.pressed());
+    if (green_button.pressed());
+    if (blue_button.pressed());
+
+    currentLock = 0;
+    loggedIn = false;
+
+    users.push_back(User());
+
+    renderLockScreen();
 }
 
-// void setup() {
-//     nvs_access();
-//     // We start by connecting to a WiFi network
-//     delay(1000);
-//     Serial.println();
-//     Serial.println();
-//     Serial.print("Connecting to ");
-//     Serial.println(ssid);
-//     WiFi.begin(ssid, pass);
-//     while (WiFi.status() != WL_CONNECTED) 
-//     {
-//         delay(500);
-//         Serial.print(".");
-//     }
-//     Serial.println("");
-//     Serial.println("WiFi connected");
-//     Serial.println("IP address: ");
-//     Serial.println(WiFi.localIP());
-//     Serial.println("MAC address: ");
-//     Serial.println(WiFi.macAddress());
 
-//     red_button.begin();
-//     yellow_button.begin();
-//     green_button.begin();
-//     blue_button.begin();
+void loop() 
+{
+  if (left_button.pressed()) {
+    // New User enroll sequence
+    if (users.size() == 0) {
+      enrollUser();
+      updateInstruction("LB: Next");
+    }
+    // Logout sequence
+    else if (loggedIn) {
+      renderLockScreen();
+      updateUser(users[currentUser].name);
+      updateInstruction("LB: Next");
+      renderArrow(0);
+      currentLock = 0;
+    }
+    // Next user
+    else if (currentUser == users.size()) {
+      updateUser("NEW USER");
+      updateInstruction("LB: Enroll");
+      updateTooltip();
+    }
+  }
 
-//     Serial.begin(9600);
+  else if (users[currentUser].name != "NEW USER" && currentLock == 0) {
+    while (1) 
+    {
+      if (unlockPattern()) {
+        renderPattern("");
+        renderArrow(-1);
 
-//     for (int i = 0; i < 5; i++)
-//     {
-//         // Prompt for pattern length
-//         Serial.print("Select your pattern length:\nRed - 4 (default)\nYellow - 6\nGreen - 8\nBlue: - 10\n");
-//         int pattern_len = 0;
+        delay(500);
 
-//         while (!pattern_len) {
-//             if (red_button.pressed()) 
-//                 pattern_len = 4;
+        renderUnlockedScreen();
+        updateInstruction(users[currentUser].name);
+        loggedIn = true;
+        break;
+      }
+      else 
+      {
+        flashIncorrect(0);
+        renderPattern("");
+      }
+    }
+    ++currentLock;
+  }
+}
 
-//             else if (yellow_button.pressed()) 
-//                 pattern_len = 6;
+void enrollUser() {
+  users[currentUser].name = createName();
+  renderArrow(0);
+  updateActionTitle("Enrolling");
+  updateInstruction("Pattern");
+  delay(2000);
+  updateUser(users[currentUser].name);
+  updateInstruction("Continue");
+  //wait till user presses to continue
+  while(!left_button.pressed())
+  {
 
-//             else if (green_button.pressed()) 
-//                 pattern_len = 8;
+  }
+  updateActionTitle("Pick a pattern Length. R: 4, G: 6, B: 8");
+  //todo probably have to allow the user to set pattern length
+  int patternLength = 0;
+  while(!patternLength)
+  {
+    if (red_button.pressed())
+    {
+      patternLength = 4;
+    }
+    if (green_button.pressed())
+    {
+      patternLength = 6;
+    }
+    if (blue_button.pressed())
+    {
+      patternLength = 8;
+    }
+  }
+  users[currentUser].setButtonPattern(getPattern(patternLength));
+  updateActionTitle("Logging in as");
+}
 
-//             else if (blue_button.pressed()) 
-//                 pattern_len = 10;
-//         }
 
-//         std::string pattern = getPattern(pattern_len);
-//         Serial.printf("Pattern selected as %s\n", pattern.c_str());
-//         WiFiClient c;
-//         HttpClient http(c);
+void clearUserData(User &user)
+{
+    user.setButtonPattern("");
+    user.setFingerPrintId(-1);
+    user.setVerbalPassword("");
+}
 
-//         std::string informationToSend = "/?pattern=";
-//         informationToSend += pattern;
-        
-//         int err = http.get(IP_ADDRESS, 5000, informationToSend.c_str(), NULL);
+std::string createName()
+{
+  std::string name {""};
+  int currentChar = 0;
+  bool confirmedCharacter = false, confirmedName = false;
 
-//         if (err == 0) 
-//         { 
-//             Serial.println("startedRequest ok");
-//             err = http.responseStatusCode();
-//             if (err >= 0) {
-//                 Serial.print("Got status code: ");
-//                 Serial.println(err);
-//             }
-//         } 
-//         else 
-//         {
-//             Serial.print("Connect failed: ");
-//             Serial.println(err);
-//         }
-//     }
-    
-// }
+  showNamePrompt();
 
-void loop() {
+  while (name.size() < 10 && !confirmedName)
+  {
+    currentChar = 0;
+    name.push_back(char(currentChar + 97));
+    updateNamePrompt(name);
 
+    while (!confirmedCharacter && !confirmedName)
+    {
+      if (red_button.pressed())  {
+        confirmedCharacter = true;
+      }
+
+      else if (green_button.pressed()) {
+        currentChar = (currentChar + 1) % 26;
+        name.pop_back();
+        name.push_back(char(currentChar + 97));
+        updateNamePrompt(name);
+      }
+
+      else if (blue_button.pressed()) {
+        currentChar = currentChar == 0 ? 25 : currentChar - 1;
+        name.pop_back();
+        name.push_back(char(currentChar + 97));
+        updateNamePrompt(name);
+      }
+
+      else if (left_button.pressed()) {
+        confirmedName = true;
+      }
+    }
+    confirmedCharacter = false;
+  }
+
+  renderLockScreen();
+
+  return name;
 }
